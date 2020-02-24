@@ -1,8 +1,14 @@
-#include "I2Cdev.h"
-#include "MPU6050.h"
-#include "Wire.h"
+#include<Wire.h>
+#include<MPU6050.h>
 
-#define refresh 4000   //2.5ms Cycle duration (400Hz refresh rate)
+MPU6050 mpu;
+
+/////////////////////////////////
+#define pitchOrigin 19.5      ///
+#define rollOrigin 0.5        ///
+/////////////////////////////////
+
+#define refresh 2500   //2.5ms Cycle duration (400Hz refresh rate)
 #define MaxPIDpitchOUT 200
 #define MaxPIDrollOUT 200
 #define MaxPIDyawOUT 100
@@ -14,23 +20,17 @@
 #define ALL_HIGH B01111000 //Pulling 3,4,5,6 high 
 #define ALL_LOW B10000111  //Pulling 3,4,5,6 low
 
-
-#define SAMPLE 2000   //To find offsets
-#define k 0.01    //contribution of accel data
-#define dt 0.004   //Cycle time in seconds
-#define ToDeg 57.3  // (180/PI)
-
-//////PID CONSTANTS///
+/////PID CONSTANTS/////
   #define kpP 4
   #define kiP 0.03
   #define kdP 1.5
-
+  
   #define kpR 4
   #define kiR 0.03
   #define kdR 1.5
-
+  
   #define kpY 10
-/////////////////////
+//////////////////////
 
 /*
   Throttle - 10  (ch3)
@@ -43,14 +43,22 @@ byte last_channel_1, last_channel_2, last_channel_3, last_channel_4;
 int throttle=1000, pitch=1500, roll=1500, yaw=1500;   ///////////////set throttle back to 1000 before actual flight/////////////////////////////////////
 unsigned long timer_1, timer_2, timer_3, timer_4;       //Variables for rf reciever reading
 
+
 ///////////ACCEL-GYRO STUFF ///////////////////////////////////////
+double gyro_x, gyro_y, gyro_z;
+double acc_x, acc_y, acc_z;
 
-MPU6050 accelgyro;
+int temperature;
+double gyro_x_cal, gyro_y_cal, gyro_z_cal;
+long loop_timer;
 
-int16_t rawAG[3][2]={0,0,0,0,0,0};  // ax ay az   gx gy gz
-float offsets[3][2]={0,0,0,0,0,0};  // ax ay az   gx gy gz
-float lastAG[3][2]={0,0,0,0,0,0};   // ax ay az   gx gy gz
-double p=0, r=0, y=0;   //pitch roll yaw from gyro+accel data fusion
+float angle_pitch, angle_roll;
+boolean set_gyro_angles;
+
+float angle_roll_acc, angle_pitch_acc;
+float angle_pitch_output, angle_roll_output;
+float yawCompensate=0;
+/////////////////////////////////////////////////////////////
 
 //////////////////MOTOR SPEEDS///////////////////////////
 int velBR=1000, velFR=1000, velFL=1000, velBL=1000;
@@ -80,60 +88,64 @@ void setup(){
   pinMode(5, OUTPUT);
   pinMode(6, OUTPUT);
 
-  ////INITITALIZE ESCs////
+  ////ESC ARMING SEQUENCE////
   PORTD |= ALL_HIGH;
   delayMicroseconds(1000);  //1ms
   PORTD &= ALL_LOW;
-  ////////////////////////
+  ///////////////////////////
 
-  setupMPU();  /////SETUP THE SENSOR
+  setupMPU();  /////SETUP THE SENSOR and CALCULATE OFFSETS
   
-  //Serial.begin(115200);///////////////////////////////////
+  Serial.begin(57600);///////////////////////////////////
 }
-
 void loop(){
   
-  while(!(c&&Start))       //If MPU does not connect put throttle to 0%
+  if(!(c&&Start))       //If MPU does not connect put throttle to 0%
   {                        //Wait for the arming sequence
-    accelgyro.testConnection()? c=1 : c=0; 
+    c=mpu.testConnection();
      
     PORTD |= ALL_HIGH;
     delayMicroseconds(1000);  //0% throttle
     PORTD &= ALL_LOW;
     delayMicroseconds(1000);
+    return;
   }
 
   runtime=micros();
 
-  readMPU();
-
-
+  readRawData();
+  processRawData();
+  
 //////////////ESC PULSE BEGINS//////////////////
   unsigned long esc_high=micros();
   PORTD |= ALL_HIGH;    //Pull all esc pins HIGH  
 ////////////////////////////////////////////////
 
-///////PART OF ESC PULSE DURATION/////////////// 
- // long tut=micros();  
-  
-  getYPR();
+  processRawData2();
+
+
+/*  Serial.print(angle_pitch_output);
+  Serial.print("\t");
+  Serial.println(angle_roll_output);
+*/
   
   if(throttle<1050)
     throttle=1000;
   else if(throttle>1800)
     throttle=1800;
    
-  velBR=velFR=velFL=velBL=throttle;
+  velBR=throttle;
+  velFR=throttle;
+  velFL=throttle;
+  velBL=throttle;
   
   if((throttle>=1100)&&Start)
   {
     PIDpitch();
     PIDroll();  
     PIDyaw();
-  }//~450us
+  }
 
- // tut=micros()-tut;
- // Serial.println(tut);
 /////////////////////////////////////////
 
   if(velBR>2000)
@@ -156,6 +168,10 @@ void loop(){
   else if(velBL<1000)
     velBL=1000;    
 
+    
+ //Serial.println(micros()-esc_high);
+
+ 
   while(PORTD >= 8) //While(atleast one of the esc pins is HIGH)
   {
     unsigned long esc_low = micros() - esc_high;
@@ -173,18 +189,23 @@ void loop(){
 
   if((millis()-lastTX)>1000)
       Start=false;
-  /*  while(throttle>1000 && (accelgyro.testConnection()))
-    {
-      getYPR();
-      velBR=velFR=velFL=velBL=throttle;
-      pitch=roll=1500;
-      PIDpitch();
-      PIDroll();
-      motorWrite();
-      throttle-=4;
-    }
-  */  
 
+  Serial.print(velBL);
+  Serial.print("\t");
+  Serial.print(velFL);
+  Serial.print("\t");
+  Serial.print(velFR);
+  Serial.print("\t");
+  Serial.println(velBR);
+
+/*  Serial.print(throttle);
+  Serial.print("\t");
+  Serial.print(pitch);
+  Serial.print("\t");
+  Serial.print(roll);
+  Serial.print("\t");
+  Serial.println(yaw);
+*/
   //Serial.println(micros()-runtime);//////////////////////////
   while((micros()-runtime)<refresh);
 }
@@ -250,7 +271,7 @@ inline void PIDpitch(){
   else
     pSetpoint = map(pitch, 1000,2000, -10.00,10.00);
     
-  double err = p - pSetpoint;
+  double err = pSetpoint - angle_pitch_output;
   double d_err = err - p_l_err;
   p_i_err += err;
   p_l_err=err;
@@ -263,24 +284,22 @@ inline void PIDpitch(){
     Out=(-MaxPIDpitchOUT);
 
   /////////////////////////
-/*  Serial.print("PITCH PID OUTPUT: ");
-  Serial.print(Out); */
+ // Serial.println(Out);
   ////////////////////////
 
-  velFL+=Out;
-  velFR+=Out;
-  velBR-=Out;
-  velBL-=Out;   
+  velFL-=Out;
+  velFR-=Out;
+  velBR+=Out;
+  velBL+=Out;   
 }
-
 inline void PIDroll(){
 
   if(roll>1450 && roll<1550)
     rSetpoint=0;
   else
-    rSetpoint = map(roll, 1000,2000, -10.00,10.00);
+    rSetpoint = -map(roll, 1000,2000, -10.00,10.00);
   
-  double err = r - rSetpoint;
+  double err = rSetpoint - angle_roll_output;
   double d_err = err - r_l_err;
   r_i_err += err;
   r_l_err = err;
@@ -293,25 +312,24 @@ inline void PIDroll(){
     Out=(-MaxPIDrollOUT);
 
   ///////////////////////////
-/*  Serial.print("\t ROLL PID OUTPUT: ");
-  Serial.println(Out); */
+  //Serial.print("\t");
+  //Serial.println(Out);
   ////////////////////////
   
-  velFL+=Out;
-  velFR-=Out;
-  velBR-=Out;
-  velBL+=Out;  
+  velFL-=Out;
+  velFR+=Out;
+  velBR+=Out;
+  velBL-=Out;  
   
 }
-
 inline void PIDyaw(){
 
   if(yaw>1450 && yaw<1550)
     ySetpoint=0;
   else
-    ySetpoint = map(yaw, 1000,2000, -5.00,5.00);
+    ySetpoint = -map(yaw, 1000,2000, -5.00,5.00);
   
-  double Out = kpY*(y - rSetpoint);
+  double Out = -kpY*(ySetpoint - gyro_z);
   
   if(Out>MaxPIDyawOUT)
     Out=MaxPIDyawOUT;
@@ -323,105 +341,122 @@ inline void PIDyaw(){
   Serial.println(Out); */
   ////////////////////////
   
-  velFL+=Out;
-  velFR-=Out;
-  velBR+=Out;
-  velBL-=Out;  
+  velFL-=Out;
+  velFR+=Out;
+  velBR-=Out;
+  velBL+=Out;  
   
 }
 
-inline float aSin(float a){  //Optimised sine inverse
+/*inline float aSin(float a){  //Optimised sine inverse
          
   return a*(1+(0.5*a*a));
-}
-
-inline void getYPR(){         //GET yaw pitch roll
-        
-    //accelgyro.getMotion6(&rawAG[0][0], &rawAG[1][0], &rawAG[2][0], &rawAG[0][1], &rawAG[1][1], &rawAG[2][1]);   
-
-  //////////COMPLEMENTARY FILTERING TO GET YPR/////////
-  p = (1-k)*( p - dt*(rawAG[1][1]*0.007634));      //(1/131) = 0.007634
-     if(abs(rawAG[0][0])<=16384.0)
-        p += k*(ToDeg)*aSin(rawAG[0][0]*0.00006104);  //(1/16384) = 0.00006104
-        
-  r = (1-k)*( r + dt*(rawAG[0][1]*0.007634));      //(1/131) = 0.007634
-     if(abs(rawAG[1][0])<=16384.0)
-        r += k*(ToDeg)*aSin(rawAG[1][0]*0.00006104);  //(1/16384) = 0.00006104
-      
-  y = rawAG[2][1]*0.007634;    //(1/131)
-  ////////////////////////////////////////////////////
-
- /* Serial.print("p: ");
-  Serial.print(p);
-  Serial.print("\t | r: ");
-  Serial.println(r); */
-  
-}
-
-/*inline void esc(int pin, int us)  //old esc function
-{  
-  PORTD |= (1<<pin);    //digitalWrite(pin,1);
-  delayMicroseconds(us);
-  PORTD &= ~(1<<pin);   //digitalWrite(pin,0);
 }*/
 
-inline void readMPU(){
-  
-  Wire.beginTransmission(0x68);  //begin transmission with the gyro
-  Wire.write(0x3B); //start reading from high byte register for accel
-  Wire.endTransmission();
-  Wire.requestFrom(0x68,14); //request 14 bytes from mpu
-  //300us for all data to be received. 
-  //requrestFrom is a blocking function 
+void processRawData(){
 
-  rawAG[0][0]=Wire.read()<<8|Wire.read();  
-  rawAG[1][0]=Wire.read()<<8|Wire.read(); 
-  rawAG[2][0]=Wire.read()<<8|Wire.read(); 
-  rawAG[0][1]=Wire.read()<<8|Wire.read();  //this one is actually temperature but i dont need temp so why waste memory.
-  rawAG[0][1]=Wire.read()<<8|Wire.read();  
-  rawAG[1][1]=Wire.read()<<8|Wire.read();
-  rawAG[2][1]=Wire.read()<<8|Wire.read();
-  
-  for(int i=0; i<=2; i++)
-  {
-      rawAG[i][0] -= offsets[i][0];
-      rawAG[i][0] = 0.7*rawAG[i][0] + 0.3*lastAG[i][0];
-      lastAG[i][0] = rawAG[i][0];
+  gyro_x -= gyro_x_cal;                                                //Subtract the offset calibration value from the raw gyro_x value
+  gyro_y -= gyro_y_cal;                                                //Subtract the offset calibration value from the raw gyro_y value
+  gyro_z -= gyro_z_cal;                                                //Subtract the offset calibration value from the raw gyro_z value
 
-      rawAG[i][1] -= offsets[i][1];
-      rawAG[i][1] = 0.7*rawAG[i][1] + 0.3*lastAG[i][1];
-      lastAG[i][1] = rawAG[i][1];
-  }//~360us
+
+  //Yaw Compensation
+  //6.661562e-7 = ((1/65.5)/400(Hz) )* (3.142(PI) / 180degr) The Arduino sin function is in radians
+  yawCompensate=sin(gyro_z * 6.661562e-7);
+
 }
+void processRawData2(){
+//long tut=micros();
 
-void setupMPU(){
-  
-  ////////MPU INITITALIZE/////////////
-  Wire.setClock(800000);
-  Wire.begin();
-  accelgyro.initialize();
-  accelgyro.testConnection() ? c=1 : c=0;
+  //Gyro angle calculations
+  //3.81679e-5 = (1/65.5)/400(Hz)
+  angle_pitch -= gyro_y * 3.81679e-5;                                   //Calculate the traveled pitch angle and add this to the angle_pitch variable
+  angle_roll += gyro_x * 3.81679e-5;                                    //Calculate the traveled roll angle and add this to the angle_roll variable
 
-  delay(2000);  //Timeframe to keep the drone on the take off ground
+  //Adding yaw compensate  
+  angle_pitch += angle_roll * yawCompensate;                //If the IMU has yawed transfer the roll angle to the pitch angle
+  angle_roll -= angle_pitch * yawCompensate;                //If the IMU has yawed transfer the pitch angle to the roll angle
+
+
+  //Accelerometer angle calculations
   
-  ///////OFFSET CALCULATION BEGINS//////
-  
-  int16_t ax=0, ay=0, az=0;  //accelerations from mpu6050
-  int16_t gx=0, gy=0, gz=0;  //gyration rates from mpu6050
-  
-  for(int i=0;i<SAMPLE;i++)
-  {
-    accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-    offsets[0][0]+=ax;
-    offsets[1][0]+=ay;
-    offsets[2][0]+=az;
-    offsets[0][1]+=gx;
-    offsets[1][1]+=gy;
-    offsets[2][1]+=gz;    
+  //57.29578 = 1 / (3.142 / 180) The Arduino asin function is in radians
+  angle_pitch_acc = atan2(acc_x,sqrt(acc_z*acc_z + acc_y*acc_y))*57.29578;       //Calculate the pitch angle
+  angle_roll_acc = atan2(acc_y,sqrt(acc_z*acc_z + acc_x*acc_x))*57.29578;       //Calculate the roll angle
+
+
+
+  //Spirit level 
+  //Place the MPU-6050 spirit level and note the values in the following two lines for calibration
+  angle_pitch_acc -= pitchOrigin;                                              //Accelerometer calibration value for pitch
+  angle_roll_acc -= rollOrigin;                                               //Accelerometer calibration value for roll
+
+//Serial.println(micros()-tut);
+
+  if(set_gyro_angles){                                                 //If the IMU is already started
+    angle_pitch = angle_pitch * 0.98 + angle_pitch_acc * 0.02;     //Correct the drift of the gyro pitch angle with the accelerometer pitch angle
+    angle_roll = angle_roll * 0.98 + angle_roll_acc * 0.02;        //Correct the drift of the gyro roll angle with the accelerometer roll angle
+  }
+  else{                                                                //At first start
+    angle_pitch = angle_pitch_acc;                                     //Set the gyro pitch angle equal to the accelerometer pitch angle 
+    angle_roll = angle_roll_acc;                                       //Set the gyro roll angle equal to the accelerometer roll angle 
+    set_gyro_angles = true;                                            //Set the IMU started flag
   }
   
-  for(int i=0; i<3; i++)
-    for(int j=0; j<2; j++)
-       offsets[i][j]/=SAMPLE;
+  //To dampen the pitch and roll angles a complementary filter is used
+  angle_pitch_output = angle_pitch_output * 0.9 + angle_pitch * 0.1;   //Take 90% of the output pitch value and add 10% of the raw pitch value
+  angle_roll_output = angle_roll_output * 0.9 + angle_roll * 0.1;      //Take 90% of the output roll value and add 10% of the raw roll value
+}
+void readRawData(){                                             //Subroutine for reading the raw gyro and accelerometer data
+  Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  Wire.write(0x3B);                                                    //Send the requested starting register
+  Wire.endTransmission();                                              //End the transmission
+  Wire.requestFrom(0x68,14);                                           //Request 14 bytes from the MPU-6050
+  while(Wire.available() < 14);                                        //Wait until all the bytes are received
+  acc_x = Wire.read()<<8|Wire.read();                                  //Add the low and high byte to the acc_x variable
+  acc_y = Wire.read()<<8|Wire.read();                                  //Add the low and high byte to the acc_y variable
+  acc_z = Wire.read()<<8|Wire.read();                                  //Add the low and high byte to the acc_z variable
+  temperature = Wire.read()<<8|Wire.read();                            //Add the low and high byte to the temperature variable
+  gyro_x = Wire.read()<<8|Wire.read();                                 //Add the low and high byte to the gyro_x variable
+  gyro_y = Wire.read()<<8|Wire.read();                                 //Add the low and high byte to the gyro_y variable
+  gyro_z = Wire.read()<<8|Wire.read();                                 //Add the low and high byte to the gyro_z variable
+}
+void setupMPU(){
+  
+  Wire.begin();                                                        //Start I2C as master
+  Wire.setClock(800000);
+  
+  delay(2000);  //Timeframe to keep the drone on the take off ground
+
+  //Activate the MPU-6050
+  Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  Wire.write(0x6B);                                                    //Send the requested starting register
+  Wire.write(0x00);                                                    //Set the requested starting register
+  Wire.endTransmission();                                              //End the transmission
+  //Configure the accelerometer (+/-8g)
+  Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  Wire.write(0x1C);                                                    //Send the requested starting register
+  Wire.write(0x10);                                                    //Set the requested starting register
+  Wire.endTransmission();                                              //End the transmission
+  //Configure the gyro (500dps full scale)
+  Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  Wire.write(0x1B);                                                    //Send the requested starting register
+  Wire.write(0x08);                                                    //Set the requested starting register
+  Wire.endTransmission();                                              //End the transmission
+
+  c=mpu.testConnection();
+  
+  ///////OFFSET CALCULATION BEGINS//////
+  for (int cal_int = 0; cal_int < 1000 ; cal_int ++)
+  {                                                                    //Run this code 2000 times
+    readRawData();                                                     //Read the raw acc and gyro data from the MPU-6050
+    gyro_x_cal += gyro_x;                                              //Add the gyro x-axis offset to the gyro_x_cal variable
+    gyro_y_cal += gyro_y;                                              //Add the gyro y-axis offset to the gyro_y_cal variable
+    gyro_z_cal += gyro_z;                                              //Add the gyro z-axis offset to the gyro_z_cal variable
+    delay(2);                                                          //Delay 2ms to simulate the 400Hz program loop
+  }
+  gyro_x_cal /= 1000;                                                  //Divide the gyro_x_cal variable by 2000 to get the avarage offset
+  gyro_y_cal /= 1000;                                                  //Divide the gyro_y_cal variable by 2000 to get the avarage offset
+  gyro_z_cal /= 1000;                                                  //Divide the gyro_z_cal variable by 2000 to get the avarage offset
   //////////////ENDS/////////////////
 }
