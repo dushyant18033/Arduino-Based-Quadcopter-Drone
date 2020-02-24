@@ -2,7 +2,7 @@
 #include "MPU6050.h"
 #include "Wire.h"
 
-#define refresh 2500   //2.5ms Cycle duration (400Hz refresh rate)
+#define refresh 4000   //2.5ms Cycle duration (400Hz refresh rate)
 #define MaxPIDpitchOUT 200
 #define MaxPIDrollOUT 200
 #define MaxPIDyawOUT 100
@@ -17,7 +17,7 @@
 
 #define SAMPLE 2000   //To find offsets
 #define k 0.01    //contribution of accel data
-#define dt 0.0025   //Cycle time in seconds
+#define dt 0.004   //Cycle time in seconds
 #define ToDeg 57.3  // (180/PI)
 
 //////PID CONSTANTS///
@@ -107,8 +107,15 @@ void loop(){
 
   readMPU();
 
-///////PART OF ESC PULSE//////////////  
+
+//////////////ESC PULSE BEGINS//////////////////
+  unsigned long esc_high=micros();
+  PORTD |= ALL_HIGH;    //Pull all esc pins HIGH  
+////////////////////////////////////////////////
+
+///////PART OF ESC PULSE DURATION/////////////// 
  // long tut=micros();  
+  
   getYPR();
   
   if(throttle<1050)
@@ -129,11 +136,40 @@ void loop(){
  // Serial.println(tut);
 /////////////////////////////////////////
 
+  if(velBR>2000)
+    velBR=2000;
+  else if(velBR<1000)
+    velBR=1000;
 
-  ////Send updated pulses to ESCs///
-  motorWrite();     
- 
-  
+  if(velFR>2000)
+    velFR=2000;
+  else if(velFR<1000)
+    velFR=1000;
+    
+  if(velFL>2000)
+    velFL=2000;
+  else if(velFL<1000)
+    velFL=1000;
+    
+  if(velBL>2000)
+    velBL=2000;
+  else if(velBL<1000)
+    velBL=1000;    
+
+  while(PORTD >= 8) //While(atleast one of the esc pins is HIGH)
+  {
+    unsigned long esc_low = micros() - esc_high;
+    
+    if(velBR<=esc_low)
+      PORTD &= BR;
+    if(velFR<=esc_low)
+      PORTD &= FR;
+    if(velFL<=esc_low)
+      PORTD &= FL;
+    if(velBL<=esc_low)
+      PORTD &= BL;
+  }  
+///////////ESC PULSE ENDS/////////////////////
 
   if((millis()-lastTX)>1000)
       Start=false;
@@ -148,9 +184,7 @@ void loop(){
       throttle-=4;
     }
   */  
-  
 
-  
   //Serial.println(micros()-runtime);//////////////////////////
   while((micros()-runtime)<refresh);
 }
@@ -294,47 +328,6 @@ inline void PIDyaw(){
   velBR+=Out;
   velBL-=Out;  
   
-}
-
-inline void motorWrite(){
-  
-  if(velBR>2000)
-    velBR=2000;
-  else if(velBR<1000)
-    velBR=1000;
-    
-  if(velFR>2000)
-    velFR=2000;
-  else if(velFR<1000)
-    velFR=1000;
-    
-  if(velFL>2000)
-    velFL=2000;
-  else if(velFL<1000)
-    velFL=1000;
-    
-  if(velBL>2000)
-    velBL=2000;
-  else if(velBL<1000)
-    velBL=1000;    
-
-//////////ESC PULSE BEGINS/////////////////////
-  unsigned long esc_high=micros();
-  PORTD |= ALL_HIGH;    //Pull all esc pins HIGH
-  while(PORTD >= 8) //While(atleast one of the esc pins is HIGH)
-  {
-    unsigned long esc_low = micros() - esc_high;
-    
-    if(velBR<=esc_low)
-      PORTD &= BR;
-    if(velFR<=esc_low)
-      PORTD &= FR;
-    if(velFL<=esc_low)
-      PORTD &= FL;
-    if(velBL<=esc_low)
-      PORTD &= BL;
-  }  
-///////////ESC PULSE ENDS/////////////////////
 }
 
 inline float aSin(float a){  //Optimised sine inverse
