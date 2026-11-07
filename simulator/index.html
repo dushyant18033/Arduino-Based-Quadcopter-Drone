@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101820">
+    <title>Quadcopter Flight Lab</title>
+    <link rel="stylesheet" href="./style.css">
+    <script type="module" src="./app.mjs"></script>
+  </head>
+  <body>
+    <main class="layout">
+      <header class="topbar">
+        <a class="brand" href="../">QUADCOPTER <span>FLIGHT LAB</span></a>
+        <div class="topbar-note"><span class="live-dot"></span> PHYSICS SIMULATION</div>
+      </header>
+
+      <section class="intro">
+        <div>
+          <div class="eyebrow">VIRTUAL TEST RANGE / 01</div>
+          <h1>Flight lab<span>.</span></h1>
+          <p>Explore how throttle and control inputs affect a quadcopter in flight.</p>
+        </div>
+        <div class="sim-badge"><span>●</span> SIM READY</div>
+      </section>
+
+      <section class="workspace" aria-label="Quadcopter simulator">
+        <div class="viewport-panel">
+          <div id="viewport" class="viewport" aria-label="Interactive 3D quadcopter scene"></div>
+          <div class="viewport-top">
+            <div class="view-label"><span class="crosshair">⌖</span> FLIGHT VIEW <small>ORBIT · ZOOM</small></div>
+            <div id="flight-state" class="flight-state"><span></span> GROUNDED</div>
+          </div>
+          <div class="telemetry">
+            <div><span>ALTITUDE</span><strong id="altitude">0.00 <small>m</small></strong></div>
+            <div><span>VERTICAL SPEED</span><strong id="vertical-speed">0.00 <small>m/s</small></strong></div>
+            <div><span>ATTITUDE</span><strong id="attitude">0° / 0° <small>R / P</small></strong></div>
+          </div>
+          <div class="view-controls">
+            <button id="pause-button" class="button button-quiet" type="button">Pause</button>
+            <button id="reset-button" class="button button-quiet" type="button">Reset flight</button>
+          </div>
+        </div>
+
+        <aside class="control-panel">
+          <div class="panel-heading">
+            <div><div class="eyebrow">PILOT INPUT</div><h2>Controls</h2></div>
+            <span class="channel-tag">4 CH</span>
+          </div>
+
+          <label class="control throttle-control" for="throttle">
+            <span class="control-title">Throttle <output id="throttle-value">0%</output></span>
+            <span class="range-wrap"><input id="throttle" type="range" min="0" max="100" value="0"><span class="range-scale"><span>0</span><span>100%</span></span></span>
+          </label>
+
+          <div class="stick-group">
+            <label class="control" for="pitch">
+              <span class="control-title">Pitch <output id="pitch-value">0°</output></span>
+              <span class="range-wrap"><input id="pitch" type="range" min="-20" max="20" value="0"><span class="range-scale"><span>NOSE DOWN</span><span>NOSE UP</span></span></span>
+            </label>
+            <label class="control" for="roll">
+              <span class="control-title">Roll <output id="roll-value">0°</output></span>
+              <span class="range-wrap"><input id="roll" type="range" min="-20" max="20" value="0"><span class="range-scale"><span>LEFT</span><span>RIGHT</span></span></span>
+            </label>
+            <label class="control" for="yaw">
+              <span class="control-title">Yaw <output id="yaw-value">0°/s</output></span>
+              <span class="range-wrap"><input id="yaw" type="range" min="-100" max="100" value="0"><span class="range-scale"><span>LEFT</span><span>RIGHT</span></span></span>
+            </label>
+          </div>
+
+          <label class="stabilization" for="stabilized">
+            <span><strong>Angle stabilization</strong><small>Auto-level roll and pitch</small></span>
+            <input id="stabilized" type="checkbox" checked>
+            <span class="toggle" aria-hidden="true"></span>
+          </label>
+          <div class="panel-foot">
+            <span>CONTROL MODE</span>
+            <strong id="mode-label">ANGLE · STABILIZED</strong>
+          </div>
+        </aside>
+      </section>
+
+      <section class="lower-grid">
+        <div class="info-card">
+          <div class="card-icon">↗</div>
+          <div><h3>Physics, not a video</h3><p>Motor thrust, gravity, drag, and body rotation are integrated in real time. The 3D view is interactive.</p></div>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">⌨</div>
+          <div><h3>Keyboard controls</h3><p><kbd>W</kbd><kbd>S</kbd> pitch · <kbd>A</kbd><kbd>D</kbd> roll · <kbd>Q</kbd><kbd>E</kbd> yaw · <kbd>↑</kbd><kbd>↓</kbd> throttle · <kbd>Space</kbd> pause</p></div>
+        </div>
+        <p class="disclaimer">Educational approximation. This simulator does not run the Arduino firmware or replace real-world testing.</p>
+      </section>
+    </main>
+  </body>
+</html>

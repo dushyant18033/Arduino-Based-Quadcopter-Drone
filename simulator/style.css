@@ -1,0 +1,126 @@
+:root {
+  color-scheme: dark;
+  font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+  background: #101820;
+  color: #e8edf0;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --muted: #82909b;
+  --line: #27333c;
+  --panel: #151f27;
+  --accent: #70e0b0;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 320px; }
+
+button, input { font: inherit; }
+
+.layout { max-width: 1320px; padding: 0 42px 38px; margin: auto; }
+
+.topbar {
+  height: 66px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand { color: #eff5f5; text-decoration: none; font-size: 13px; font-weight: 700; letter-spacing: .12em; }
+.brand span { color: #91a1ab; font-size: 10px; font-weight: 500; margin-left: 8px; }
+.topbar-note, .eyebrow, .view-label, .flight-state, .telemetry div > span, .panel-foot, .channel-tag, .range-scale, .disclaimer { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+.topbar-note { display: flex; gap: 8px; align-items: center; color: #9aa8b0; font-size: 10px; letter-spacing: .08em; }
+.live-dot, .flight-state span { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; display: inline-block; }
+
+.intro { padding: 32px 0 22px; display: flex; align-items: end; justify-content: space-between; }
+.eyebrow { color: var(--accent); font-size: 10px; letter-spacing: .12em; }
+h1 { font-size: clamp(32px, 4vw, 46px); line-height: 1; letter-spacing: -.05em; margin: 9px 0 10px; font-weight: 600; }
+h1 span { color: var(--accent); }
+.intro p { color: #9ba8b1; font-size: 13px; margin: 0; }
+.sim-badge { border: 1px solid #2d4d42; border-radius: 4px; padding: 8px 10px; color: #9ce8c3; font: 10px "SFMono-Regular", Consolas, "Liberation Mono", monospace; letter-spacing: .05em; }
+.sim-badge span { font-size: 8px; margin-right: 5px; }
+
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) 315px; gap: 16px; }
+.viewport-panel, .control-panel, .info-card { border: 1px solid var(--line); background: var(--panel); border-radius: 7px; }
+.viewport-panel { position: relative; overflow: hidden; min-height: 520px; }
+.viewport { position: absolute; inset: 0; }
+.viewport canvas { display: block; width: 100%; height: 100%; }
+.viewport-top { position: absolute; top: 17px; left: 18px; right: 18px; display: flex; align-items: center; justify-content: space-between; pointer-events: none; }
+.view-label { color: #c4cdd1; font-size: 10px; letter-spacing: .07em; }
+.crosshair { color: var(--accent); font-size: 15px; vertical-align: -1px; margin-right: 5px; }
+.view-label small { color: #65737d; font-size: 9px; margin-left: 10px; }
+.flight-state { display: flex; gap: 7px; align-items: center; color: #aab6bd; font-size: 9px; letter-spacing: .07em; }
+.flight-state.airborne span { background: #ffc96a; box-shadow: 0 0 10px #ffc96a88; }
+
+.telemetry { position: absolute; bottom: 17px; left: 18px; display: flex; gap: 27px; pointer-events: none; }
+.telemetry div { display: grid; gap: 5px; }
+.telemetry div > span { color: #7d8b94; font-size: 8px; letter-spacing: .08em; }
+.telemetry strong { font: 500 16px "SFMono-Regular", Consolas, "Liberation Mono", monospace; color: #e9f1f0; }
+.telemetry strong small { font-size: 9px; color: #98a7af; }
+.view-controls { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 8px; }
+.button { border: 1px solid #34434c; border-radius: 4px; background: #17232b; color: #c2cdd2; padding: 8px 11px; font-size: 11px; cursor: pointer; }
+.button:hover { border-color: #698075; color: white; }
+
+.control-panel { padding: 22px 21px 16px; display: flex; flex-direction: column; }
+.panel-heading { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h2 { font-size: 20px; letter-spacing: -.03em; margin: 4px 0 0; font-weight: 500; }
+.channel-tag { color: #8d9ba4; border: 1px solid #35424a; border-radius: 3px; padding: 5px 7px; font-size: 9px; }
+.control { display: block; }
+.throttle-control { margin: 24px 0 27px; }
+.control-title { display: flex; justify-content: space-between; font-size: 12px; color: #d7dfe1; }
+.control output { color: var(--accent); font: 11px "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+.range-wrap { display: block; margin-top: 13px; }
+input[type="range"] { appearance: none; display: block; width: 100%; height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--accent) 0%, var(--accent) var(--fill, 50%), #35434c var(--fill, 50%), #35434c 100%); cursor: pointer; }
+input[type="range"]::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; border: 2px solid #142129; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+input[type="range"]::-moz-range-thumb { width: 9px; height: 9px; border: 2px solid #142129; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.range-scale { display: flex; justify-content: space-between; margin-top: 8px; color: #6f7e87; font-size: 8px; letter-spacing: .03em; }
+.stick-group { display: grid; gap: 21px; padding: 18px 0 22px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stabilization { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 20px 0; cursor: pointer; }
+.stabilization strong, .stabilization small { display: block; }
+.stabilization strong { font-size: 11px; font-weight: 500; }
+.stabilization small { color: #819099; font-size: 10px; margin-top: 4px; }
+.stabilization input { position: absolute; opacity: 0; }
+.toggle { width: 32px; height: 18px; border-radius: 12px; background: #39464e; transition: background .15s; }
+.toggle::after { content: ""; display: block; width: 12px; height: 12px; border-radius: 50%; margin: 3px; background: #bdc7cb; transition: transform .15s, background .15s; }
+.stabilization input:checked + .toggle { background: #326d56; }
+.stabilization input:checked + .toggle::after { background: var(--accent); transform: translateX(14px); }
+.stabilization input:focus-visible + .toggle { outline: 2px solid white; outline-offset: 3px; }
+.panel-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 8px; color: #74828b; letter-spacing: .06em; }
+.panel-foot strong { color: #aab7bd; font-size: 8px; font-weight: 400; }
+
+.lower-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.info-card { display: flex; gap: 13px; padding: 15px 16px; }
+.card-icon { color: var(--accent); font-size: 20px; line-height: 1; }
+.info-card h3 { margin: 0 0 5px; font-size: 11px; font-weight: 600; }
+.info-card p { color: #91a0a9; margin: 0; font-size: 10px; line-height: 1.6; }
+kbd { display: inline-block; border: 1px solid #40505a; border-radius: 3px; padding: 0px 4px; color: #dbe5e5; font: 9px "SFMono-Regular", Consolas, "Liberation Mono", monospace; margin: 0 2px; }
+.disclaimer { grid-column: 1 / -1; margin: 0; color: #708089; font-size: 9px; }
+
+@media (max-width: 850px) {
+  .layout { padding: 0 20px 28px; }
+  .workspace { grid-template-columns: 1fr; }
+  .viewport-panel { min-height: min(60vh, 500px); }
+  .control-panel { min-height: 0; }
+  .stick-group { grid-template-columns: 1fr 1fr; }
+  .stick-group .control:last-child { grid-column: 1 / -1; }
+}
+
+@media (max-width: 520px) {
+  .layout { padding: 0 13px 22px; }
+  .topbar { height: 54px; }
+  .brand { font-size: 11px; }
+  .brand span { font-size: 8px; margin-left: 4px; }
+  .topbar-note { font-size: 8px; }
+  .intro { padding-top: 25px; }
+  .intro p { max-width: 250px; line-height: 1.5; }
+  .sim-badge { font-size: 8px; padding: 6px; }
+  .viewport-panel { min-height: 430px; }
+  .telemetry { gap: 13px; left: 12px; bottom: 62px; }
+  .telemetry strong { font-size: 12px; }
+  .telemetry div > span { font-size: 7px; }
+  .view-controls { right: 10px; bottom: 10px; }
+  .button { padding: 7px 8px; }
+  .lower-grid { grid-template-columns: 1fr; }
+  .disclaimer { grid-column: auto; line-height: 1.6; }
+}
